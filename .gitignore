@@ -1,3 +1,129 @@
 # Build folder and log file
 build/
 build.log
+import concurrent.futures
+import threading
+import logging
+import time
+import resource
+import sys
+import os
+from unittest.mock import patch
+import pytest
+
+class ThreadSafeLogHandler(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        self.records = []
+        self.lock = threading.Lock()
+
+    def emit(self, record):
+        with self.lock:
+            self.records.append(record)
+
+def test_concurrent_access_complex(self, stress_count=int(os.environ.get("STRESS_COUNT", 1000))):
+    def add_and_update(acronym, topic, predicted_outcome, confidence, actual_outcome):
+        self.system.add_acronym_data(acronym, topic, predicted_outcome, confidence)
+        self.system.update_outcome(acronym, actual_outcome, confidence + 0.1)
+
+    def read_and_write(system, acronym, actual_outcome):
+        system.get_prediction(acronym)
+        system.update_outcome(acronym, actual_outcome, 0.9)
+
+    acronyms = ["E6", "AI", "ML"]
+
+    handler = ThreadSafeLogHandler()
+    formatter = logging.Formatter('%(asctime)s [%(levelname)s] [%(threadName)s] %(message)s')
+    handler.setFormatter(formatter)
+    logger = logging.getLogger()
+    logger.addHandler(handler)
+    logger.setLevel(logging.ERROR)
+
+    futures_add_update = []
+    futures_read_write = []
+    futures_stress = []
+    errors = []
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20, thread_name_prefix="TestWorker") as executor:
+        for i, acronym in enumerate(acronyms):
+            futures_add_update.append(executor.submit(add_and_update, acronym, f"Topic{i}", f"Prediction{i}", 0.8, f"Actual{i}"))
+
+        for i in range(10):
+            futures_read_write.append(executor.submit(read_and_write, self.system, "E6", f"Actual{i}"))
+
+        for i in range(stress_count):
+            futures_stress.append(executor.submit(read_and_write, self.system, "E6", f"StressTest{i}"))
+
+        for future in futures_add_update + futures_read_write + futures_stress:
+            try:
+                future.result()
+            except Exception as e:
+                logger.error(f"Thread error: {e}")
+                errors.append(e)
+
+    self.assertEqual(len(errors), 0, f"Encountered {len(errors)} thread errors: {errors}")
+
+    for acronym in acronyms:
+        with self.subTest(acronym=acronym):
+            self.assertIn(acronym, self.system.data)
+            self.assertIsNotNone(self.system.data[acronym]["actual_outcome"])
+            self.assertIsNotNone(self.system.data[acronym]["accuracy"])
+            self.assertGreater(self.system.data[acronym]["accuracy"], 0.7, f"Accuracy too low for {acronym}")
+
+    history = self.system.get_history("E6") or []
+    self.assertEqual(len(history), 10, f"Expected 10 history entries for E6, but found {len(history)}")
+    self.assertTrue(all("actual_outcome" in h for h in history), "Missing 'actual_outcome' in some history entries")
+    self.assertTrue(all("accuracy" in h for h in history), "Missing 'accuracy' in some history entries")
+
+    # Assert that no errors were logged
+    self.assertEqual(len(handler.records), 0)
+
+    # Dump logs if errors were logged
+    if handler.records:
+        for record in handler.records:
+            print(handler.format(record))
+            sys.stdout.flush()
+
+    def _measure_operations_time(futures, label, threshold):
+        start = time.time()
+        concurrent.futures.wait(futures)
+        duration = time.time() - start
+        self.assertLess(duration, threshold, f"{label} operations took too long: {duration:.2f}s")
+
+    _measure_operations_time(futures_add_update, "Add/Update", 2)
+    _measure_operations_time(futures_read_write, "Read/Write", 2)
+
+    memory_usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    if sys.platform == "darwin":
+        memory_usage_bytes = memory_usage
+    else:
+        memory_usage_bytes = memory_usage * 1024
+
+    MEMORY_THRESHOLD = 1024 * 1024 * 1.2  # 1.2 GB threshold
+    if memory_usage_bytes >= MEMORY_THRESHOLD:
+        logger.warning(f"Memory usage exceeded threshold: {memory_usage_bytes} bytes")
+    self.assertLess(memory_usage_bytes, MEMORY_THRESHOLD, f"Concurrent operations used too much memory: {memory_usage_bytes} bytes")
+    logger.info(f"Memory usage: {memory_usage_bytes / (1024 ** 2):.2f} MB")
+
+    logging.getLogger().setLevel(logging.NOTSET)
+    logger.removeHandler(handler)
+    handler.close()
+
+    invalid_acronyms = ["XYZ", "INVALID", "UNKNOWN"]
+    for acronym in invalid_acronyms:
+        with self.subTest(acronym=acronym):
+            self.assertNotIn(acronym, self.system.data, f"Unexpected acronym found: {acronym}")
+
+    additional_edge_case_acronyms = ["A" * 100, "123ABC", "aBcDeFg"]
+    for acronym in additional_edge_case_acronyms:
+        with self.subTest(acronym=acronym):
+            self.assertNotIn(acronym, self.system.data, f"Unexpected acronym found: {acronym}")
+
+    # Example of mocking external dependencies (if applicable)
+    # with patch('my_module.external_service') as mock_service:
+    #     mock_service.return_value = "mocked data"
+    #     # Now perform the test with the mocked service
+
+@pytest.mark.parametrize("stress_count", [100, 500, 1000])
+def test_concurrent_behavior_parametrized(self, stress_count):
+    test_concurrent_access_complex(self, stress_count)
