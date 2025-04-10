@@ -1,0 +1,154 @@
+import networkx as nx
+import re
+import json
+
+
+class InputHandler:
+    def __init__(self):
+        pass
+    
+    def clean_input(self, word):
+        # Normalize input: lowercase and remove non-alphanumeric characters
+        word = word.lower()
+        word = re.sub(r'[^a-z0-9]', '', word)  # Remove non-alphanumeric characters
+        return word
+
+    def detect_symbolic_patterns(self, word):
+        # Custom logic to detect symbolic patterns (if needed)
+        return word
+
+
+class FlipEngine:
+    def __init__(self):
+        self.flip_dict = {
+            "your": ["lov", "voj"],
+            "lov": ["voj"],
+            "voj": ["your"]
+            # Add more flip patterns here
+        }
+    
+    def flip(self, word):
+        # Simple flip logic based on pre-defined dictionary
+        return self.flip_dict.get(word, [word])  # Returns the flip or the original word
+    
+    def add_flip_pattern(self, original, flips):
+        """Dynamically add a new flip pattern."""
+        self.flip_dict[original] = flips
+
+
+class AcronymMapper:
+    def __init__(self, acronym_file=None):
+        if acronym_file:
+            self.acronym_db = self.load_acronyms(acronym_file)
+        else:
+            self.acronym_db = {
+                "lov": ["land of the vikings", "love of variety", "light-oxygen-voltage sensing"],
+                "voj": ["voice of justice", "voice of judgment", "voice of journalists"]
+            }
+    
+    def load_acronyms(self, filename):
+        """Load acronym database from a JSON file."""
+        with open(filename, 'r') as f:
+            return json.load(f)
+    
+    def map_acronym(self, acronym):
+        return self.acronym_db.get(acronym, ["Unknown acronym"])
+
+
+class SymbolicScorer:
+    def __init__(self):
+        pass
+
+    def score_flip(self, word):
+        # More advanced scoring logic based on symbolic meaning
+        if 'justice' in word:
+            return 10  # Higher score for justice-related flips
+        elif 'love' in word:
+            return 5  # Lower score for love-related flips
+        return 1  # Default low score
+
+
+class GraphBuilder:
+    def __init__(self):
+        self.graph = nx.DiGraph()  # Directed graph
+
+    def add_node(self, word, score):
+        self.graph.add_node(word, score=score)
+
+    def add_edge(self, start, end):
+        self.graph.add_edge(start, end)
+
+    def get_path(self, start, end):
+        try:
+            # Return shortest path and handle exceptions gracefully
+            path = nx.shortest_path(self.graph, source=start, target=end)
+            return path
+        except nx.NetworkXNoPath:
+            print(f"No path found between {start} and {end}")
+            return None
+
+    def visualize_graph(self):
+        # Simple visualization of the graph (optional)
+        nx.draw(self.graph, with_labels=True, node_size=3000, node_color='lightblue', font_size=12)
+
+
+class LoopDetector:
+    def __init__(self):
+        pass
+    
+    def detect_loop(self, path):
+        # Simple check for loop in path
+        if len(path) != len(set(path)):
+            return True  # Loop detected
+        return False
+
+    def detect_cycles(self, graph):
+        """Detect cycles in the graph."""
+        cycles = list(nx.simple_cycles(graph))
+        return cycles
+
+
+# --- TEST SYSTEM ---
+
+def test_system():
+    # Initialize components
+    input_handler = InputHandler()
+    flip_engine = FlipEngine()
+    acronym_mapper = AcronymMapper()
+    symbolic_scorer = SymbolicScorer()
+    graph_builder = GraphBuilder()
+    loop_detector = LoopDetector()
+
+    # Test input handling
+    word = "Your"
+    cleaned_word = input_handler.clean_input(word)
+    print(f"Cleaned input: {cleaned_word}")
+
+    # Test flipping
+    flipped = flip_engine.flip(cleaned_word)
+    print(f"Flipped words: {flipped}")
+
+    # Test acronym mapping
+    acronym_meanings = acronym_mapper.map_acronym("lov")
+    print(f"Acronym meanings for 'lov': {acronym_meanings}")
+
+    # Test symbolic scoring
+    score = symbolic_scorer.score_flip("voice of justice")
+    print(f"Score for flip: {score}")
+
+    # Test graph building
+    graph_builder.add_node("lov", score)
+    graph_builder.add_edge("your", "lov")
+    path = graph_builder.get_path("your", "lov")
+    print(f"Path between 'your' and 'lov': {path}")
+
+    # Test loop detection
+    if path:
+        loop = loop_detector.detect_loop(path)
+        print(f"Loop detected: {loop}")
+
+    # Optionally visualize the graph
+    graph_builder.visualize_graph()
+
+# Run the test system
+test_system()
